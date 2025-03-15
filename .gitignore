@@ -1,2 +1,6 @@
 .venv/
+env/
+
+# Ignore environment variables
+.env
 .env/
