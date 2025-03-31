@@ -1,65 +1,48 @@
-import os
 import streamlit as st
-from gtts import gTTS
+import google.generativeai as genai
+import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-import uuid
-import translators as ts
+import urllib.parse
 
-# ✅ Load API key from .env file
+def get_youtube_video(topic, language):
+    """Fetch a YouTube video related to the topic and language."""
+    search_query = f"{topic} {language} educational video"
+    return f"https://www.youtube.com/results?search_query={urllib.parse.quote(search_query)}"
+
+def get_book_reference(topic):
+    """Fetch book recommendations related to the topic."""
+    search_query = f"Best books for learning {topic}"
+    return f"https://www.google.com/search?q={urllib.parse.quote(search_query)}"
+
+# Load API Key from .env
 load_dotenv()
-API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ✅ Initialize Gemini AI Model
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.6, google_api_key=API_KEY)
+genai.configure(api_key=GEMINI_API_KEY)
 
-# ✅ Streamlit UI
-st.title("🎓 AI Tutor & Homework Helper")
-st.subheader("Ask any question, and the AI will explain it!")
+def get_gemini_response(user_query, level, language):
+    """Generates response using Gemini Pro 1.5 based on class level and language."""
+    model = genai.GenerativeModel("gemini-1.5-pro")
+    full_query = f"Answer for a {level} student in {language}: {user_query}"
+    response = model.generate_content(full_query)
+    return response.text
 
-# ✅ User Question
-query = st.text_area("✍️ Enter your question:")
+# Streamlit UI
+st.title("📖 AI Homework & Assignment Helper")
+st.write("Ask me about Math, Science, Coding, and Essays!")
 
-# ✅ Language Selection for Text Answer
-text_language = st.selectbox("📜 Select Language for Text Answer:", ["English", "Tamil", "Hindi", "Malayalam"])
+# Class selection
+level = st.selectbox("Select Your Level:", ["Class 1-5", "Class 6-10", "class 11-12", "Undergraduate (UG)", "Postgraduate (PG)", "Research Scholar"])
+language = st.selectbox("Select Language:", ["English", "Tamil", "Hindi", "Spanish", "French", "German"])
 
-# ✅ Enable Voice Output
-use_voice = st.checkbox("🔊 Enable Voice Answer")
-
-# ✅ Language Selection for Voice Answer (if enabled)
-if use_voice:
-    voice_language = st.selectbox("🎤 Select Language for Voice Answer:", ["English", "Tamil", "Hindi", "Malayalam"])
-else:
-    voice_language = None  # No voice if not selected
-
-# ✅ Language Mapping
-lang_map = {"English": "en", "Tamil": "ta", "Hindi": "hi", "Malayalam": "ml"}
-
-# ✅ Process Question
-if st.button("🎯 Get Answer"):
-    if query:
-        # ✅ Step 1: Generate AI Explanation
-        prompt = f"Provide a step-by-step explanation in {text_language} for: {query}"
-        response = llm.invoke(prompt).content  
-
-        st.write(f"🤖 Answer in {text_language}:")
-        st.write(response)
-
-        # ✅ Step 2: Convert to Voice (if enabled)
-        if use_voice:
-            # ✅ If text language is different from voice language, translate first
-            if text_language != voice_language:
-                translated_response = ts.translate_text(response, to_language=lang_map[voice_language])
-            else:
-                translated_response = response
-
-            # ✅ Generate Voice File
-            filename = f"answer_{uuid.uuid4().hex}.mp3"
-            tts = gTTS(text=translated_response, lang=lang_map[voice_language])
-            tts.save(filename)
-
-            # ✅ Play the Audio
-            st.audio(filename)
-
-    else:
-        st.warning("⚠️ Please enter a question.")
+user_input = st.text_input("Enter your question:")
+if st.button("Get Answer"):
+    if user_input:
+        answer = get_gemini_response(user_input, level, language)
+        st.success(f"**AI Explanation ({level}) in {language}:** {answer}")
+        
+        youtube_link = get_youtube_video(user_input, language)
+        books_link = get_book_reference(user_input)
+        
+        st.info(f"🔹 **YouTube Video in {language}:** [Click Here]({youtube_link})")
+        st.info(f"📚 **Book Reference:** [Click Here]({books_link})")
